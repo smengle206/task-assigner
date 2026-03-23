@@ -1,0 +1,221 @@
+{
+  "tasks": [
+    "Compactor",
+    "Working Face Loader",
+    "Cover soil Load",
+    "Cover soil truck",
+    "Cover soil Dozer",
+    "Site Cleanup",
+    "Site ops",
+    "RO",
+    "Water/Sweep",
+    "Laurel Valley Hauling",
+    "Recycling Route",
+    "Strip/Special",
+    "IPC",
+    "Gas",
+    "Small Loads",
+    "Speakman soil",
+    "Lunch",
+    "Electronic Shipment",
+    "Out",
+    "Shop",
+    "Site Maintenance",
+    "Compost turning",
+    "Daily Data (Fulcrum)",
+    "Empty Branches Bin",
+    "Site Cleanup/Tarping",
+    "Power Washing",
+    "Power Washing/Tarping",
+    "Fulcrum Report"
+  ],
+  "employees": [
+    {
+      "id": 1,
+      "name": "Bryant Jr, Boyd E"
+    },
+    {
+      "id": 2,
+      "name": "Bishop, Sam"
+    },
+    {
+      "id": 3,
+      "name": "Carroll, Richard"
+    },
+    {
+      "id": 4,
+      "name": "Chapline, Matthew"
+    },
+    {
+      "id": 5,
+      "name": "Fonseca, Jose"
+    },
+    {
+      "id": 6,
+      "name": "Gonzalez, Amilkar"
+    },
+    {
+      "id": 7,
+      "name": "Guzman, Emmanuel"
+    },
+    {
+      "id": 8,
+      "name": "Gross, Scott"
+    },
+    {
+      "id": 9,
+      "name": "Haldaway, Tyler"
+    },
+    {
+      "id": 10,
+      "name": "Ham, Joseph W"
+    },
+    {
+      "id": 11,
+      "name": "La Motte, Keith W"
+    },
+    {
+      "id": 12,
+      "name": "Hubbard, Chris"
+    },
+    {
+      "id": 13,
+      "name": "Nida, Kevin J"
+    },
+    {
+      "id": 14,
+      "name": "Olvera, Vicente"
+    },
+    {
+      "id": 15,
+      "name": "Santos, Anthony"
+    },
+    {
+      "id": 16,
+      "name": "Thomas, Jason"
+    },
+    {
+      "id": 17,
+      "name": "Villegas, Daniel"
+    },
+    {
+      "id": 18,
+      "name": "Waters, Earl"
+    }
+  ],
+  "assignments": {
+    "1": {
+      "morning": "Working Face Loader",
+      "first_lunch": "Working Face Loader",
+      "second_lunch": "Working Face Loader",
+      "afternoon": "Working Face Loader"
+    },
+    "2": {
+      "morning": "Gas",
+      "first_lunch": "Empty Branches Bin",
+      "second_lunch": "Empty Branches Bin",
+      "afternoon": "Cover soil Load"
+    },
+    "3": {
+      "morning": "Site Maintenance",
+      "first_lunch": "Site Maintenance",
+      "second_lunch": "Lunch",
+      "afternoon": "Cover soil truck"
+    },
+    "4": {
+      "morning": "Shop",
+      "first_lunch": "Shop",
+      "second_lunch": "Shop",
+      "afternoon": "Shop"
+    },
+    "5": {
+      "morning": "IPC",
+      "first_lunch": "IPC",
+      "second_lunch": "IPC",
+      "afternoon": "IPC"
+    },
+    "6": {
+      "morning": "Site Cleanup",
+      "first_lunch": "Site Cleanup",
+      "second_lunch": "Lunch",
+      "afternoon": "Site Cleanup/Tarping"
+    },
+    "7": {
+      "morning": "Power Washing",
+      "first_lunch": "Lunch",
+      "second_lunch": "Power Washing",
+      "afternoon": "Power Washing/Tarping"
+    },
+    "8": {
+      "morning": "Shop",
+      "first_lunch": "Shop",
+      "second_lunch": "Shop",
+      "afternoon": "Shop"
+    },
+    "9": {
+      "morning": "Strip/Special",
+      "first_lunch": "Empty Branches Bin",
+      "second_lunch": "Empty Branches Bin",
+      "afternoon": "Cover soil Dozer"
+    },
+    "10": {
+      "morning": "Compactor",
+      "first_lunch": "Compactor",
+      "second_lunch": "Compactor",
+      "afternoon": "Compactor"
+    },
+    "11": {
+      "morning": "Out",
+      "first_lunch": "Out",
+      "second_lunch": "Out",
+      "afternoon": "Out"
+    },
+    "12": {
+      "morning": "Shop",
+      "first_lunch": "Shop",
+      "second_lunch": "Shop",
+      "afternoon": "Shop"
+    },
+    "13": {
+      "morning": "Out",
+      "first_lunch": "Out",
+      "second_lunch": "Out",
+      "afternoon": "Out"
+    },
+    "14": {
+      "morning": "Recycling Route",
+      "first_lunch": "Recycling Route",
+      "second_lunch": "Recycling Route",
+      "afternoon": "Recycling Route"
+    },
+    "15": {
+      "morning": "Fulcrum Report",
+      "first_lunch": "Fulcrum Report",
+      "second_lunch": "Lunch",
+      "afternoon": "Site Cleanup/Tarping"
+    },
+    "16": {
+      "morning": "Small Loads",
+      "first_lunch": "Lunch",
+      "second_lunch": "Small Loads",
+      "afternoon": "Small Loads"
+    },
+    "17": {
+      "morning": "Water/Sweep",
+      "first_lunch": "Water/Sweep",
+      "second_lunch": "Water/Sweep",
+      "afternoon": "Water/Sweep"
+    },
+    "18": {
+      "morning": "Out",
+      "first_lunch": "Out",
+      "second_lunch": "Out",
+      "afternoon": "Out"
+    }
+  },
+  "announcements": [
+    "Enrique off site at 10:00am",
+    "Please use old shop safety supplies first.",
+    "Water jugs must be returned from breakroom or we will not receive a replacement for those jugs."
+  ]
+}
