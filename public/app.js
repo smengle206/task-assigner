@@ -133,7 +133,7 @@ async function renderAdminAssign() {
   localStorage.setItem('task-assigner-pointing-date', savedDate);
   
   const headerContainer = el('div', { style: 'display:flex; align-items:center; gap:10px;' });
-  headerContainer.appendChild(document.createTextNode('Morning Pointing for'));
+  headerContainer.appendChild(document.createTextNode('Daily Pointing for'));
   const dateInput = el('input', { type: 'date', value: savedDate, style: 'padding:5px; font-size:14px;' });
   dateInput.addEventListener('change', (e) => {
     localStorage.setItem('task-assigner-pointing-date', e.target.value);
@@ -162,7 +162,7 @@ async function renderAdminAssign() {
   const thead = el('thead', {},
     el('tr', {},
       el('th', {}, 'Employee'),
-      ...timeslots.map(t => el('th', {}, t.replace('_', ' ')))
+      ...timeslots.map(t => el('th', {}, t))
     )
   );
   table.appendChild(thead);
@@ -377,7 +377,7 @@ async function initDashboard() {
   const thead = el('thead', {},
     el('tr', {},
       el('th', {}, 'Employee'),
-      ...timeslots.map(t => el('th', {}, t.replace('_', ' ')))
+      ...timeslots.map(t => el('th', {}, t))
     )
   );
   table.appendChild(thead);

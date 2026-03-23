@@ -35,10 +35,10 @@ const defaultData = {
 // Initialize default assignments
 defaultData.employees.forEach(e => {
   defaultData.assignments[e.id] = {
-    morning: '',
-    first_lunch: '',
-    second_lunch: '',
-    afternoon: ''
+    'Morning': '',
+    '1st Lunch': '',
+    '2nd Lunch': '',
+    'Afternoon': ''
   };
 });
 
@@ -75,7 +75,7 @@ function saveData() {
 // Load data on startup
 loadData();
 
-const timeslots = ['morning', 'first_lunch', 'second_lunch', 'afternoon'];
+const timeslots = ['Morning', '1st Lunch', '2nd Lunch', 'Afternoon'];
 const VALID_TOKEN = 'demo-token'; // Fixed token for all authenticated requests
 let authToken = null;
 

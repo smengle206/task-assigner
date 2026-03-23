@@ -105,112 +105,112 @@
   ],
   "assignments": {
     "1": {
-      "morning": "Working Face Loader",
-      "first_lunch": "Working Face Loader",
-      "second_lunch": "Working Face Loader",
-      "afternoon": "Working Face Loader"
+      "Morning": "Working Face Loader",
+      "1st Lunch": "Working Face Loader",
+      "2nd Lunch": "Working Face Loader",
+      "Afternoon": "Working Face Loader"
     },
     "2": {
-      "morning": "Gas",
-      "first_lunch": "Empty Branches Bin",
-      "second_lunch": "Empty Branches Bin",
-      "afternoon": "Cover soil Load"
+      "Morning": "Gas",
+      "1st Lunch": "Empty Branches Bin",
+      "2nd Lunch": "Empty Branches Bin",
+      "Afternoon": "Cover soil Load"
     },
     "3": {
-      "morning": "Site Maintenance",
-      "first_lunch": "Site Maintenance",
-      "second_lunch": "Lunch",
-      "afternoon": "Cover soil truck"
+      "Morning": "Site Maintenance",
+      "1st Lunch": "Site Maintenance",
+      "2nd Lunch": "Lunch",
+      "Afternoon": "Cover soil truck"
     },
     "4": {
-      "morning": "Shop",
-      "first_lunch": "Shop",
-      "second_lunch": "Shop",
-      "afternoon": "Shop"
+      "Morning": "Shop",
+      "1st Lunch": "Shop",
+      "2nd Lunch": "Shop",
+      "Afternoon": "Shop"
     },
     "5": {
-      "morning": "IPC",
-      "first_lunch": "IPC",
-      "second_lunch": "IPC",
-      "afternoon": "IPC"
+      "Morning": "IPC",
+      "1st Lunch": "IPC",
+      "2nd Lunch": "IPC",
+      "Afternoon": "IPC"
     },
     "6": {
-      "morning": "Site Cleanup",
-      "first_lunch": "Site Cleanup",
-      "second_lunch": "Lunch",
-      "afternoon": "Site Cleanup/Tarping"
+      "Morning": "Site Cleanup",
+      "1st Lunch": "Site Cleanup",
+      "2nd Lunch": "Lunch",
+      "Afternoon": "Site Cleanup/Tarping"
     },
     "7": {
-      "morning": "Power Washing",
-      "first_lunch": "Lunch",
-      "second_lunch": "Power Washing",
-      "afternoon": "Power Washing/Tarping"
+      "Morning": "Power Washing",
+      "1st Lunch": "Lunch",
+      "2nd Lunch": "Power Washing",
+      "Afternoon": "Power Washing/Tarping"
     },
     "8": {
-      "morning": "Shop",
-      "first_lunch": "Shop",
-      "second_lunch": "Shop",
-      "afternoon": "Shop"
+      "Morning": "Shop",
+      "1st Lunch": "Shop",
+      "2nd Lunch": "Shop",
+      "Afternoon": "Shop"
     },
     "9": {
-      "morning": "Strip/Special",
-      "first_lunch": "Empty Branches Bin",
-      "second_lunch": "Empty Branches Bin",
-      "afternoon": "Cover soil Dozer"
+      "Morning": "Strip/Special",
+      "1st Lunch": "Empty Branches Bin",
+      "2nd Lunch": "Empty Branches Bin",
+      "Afternoon": "Cover soil Dozer"
     },
     "10": {
-      "morning": "Compactor",
-      "first_lunch": "Compactor",
-      "second_lunch": "Compactor",
-      "afternoon": "Compactor"
+      "Morning": "Compactor",
+      "1st Lunch": "Compactor",
+      "2nd Lunch": "Compactor",
+      "Afternoon": "Compactor"
     },
     "11": {
-      "morning": "Out",
-      "first_lunch": "Out",
-      "second_lunch": "Out",
-      "afternoon": "Out"
+      "Morning": "Out",
+      "1st Lunch": "Out",
+      "2nd Lunch": "Out",
+      "Afternoon": "Out"
     },
     "12": {
-      "morning": "Shop",
-      "first_lunch": "Shop",
-      "second_lunch": "Shop",
-      "afternoon": "Shop"
+      "Morning": "Shop",
+      "1st Lunch": "Shop",
+      "2nd Lunch": "Shop",
+      "Afternoon": "Shop"
     },
     "13": {
-      "morning": "Out",
-      "first_lunch": "Out",
-      "second_lunch": "Out",
-      "afternoon": "Out"
+      "Morning": "Out",
+      "1st Lunch": "Out",
+      "2nd Lunch": "Out",
+      "Afternoon": "Out"
     },
     "14": {
-      "morning": "Recycling Route",
-      "first_lunch": "Recycling Route",
-      "second_lunch": "Recycling Route",
-      "afternoon": "Recycling Route"
+      "Morning": "Recycling Route",
+      "1st Lunch": "Recycling Route",
+      "2nd Lunch": "Recycling Route",
+      "Afternoon": "Recycling Route"
     },
     "15": {
-      "morning": "Fulcrum Report",
-      "first_lunch": "Fulcrum Report",
-      "second_lunch": "Lunch",
-      "afternoon": "Site Cleanup/Tarping"
+      "Morning": "Fulcrum Report",
+      "1st Lunch": "Fulcrum Report",
+      "2nd Lunch": "Lunch",
+      "Afternoon": "Site Cleanup/Tarping"
     },
     "16": {
-      "morning": "Small Loads",
-      "first_lunch": "Lunch",
-      "second_lunch": "Small Loads",
-      "afternoon": "Small Loads"
+      "Morning": "Small Loads",
+      "1st Lunch": "Lunch",
+      "2nd Lunch": "Small Loads",
+      "Afternoon": "Small Loads"
     },
     "17": {
-      "morning": "Water/Sweep",
-      "first_lunch": "Water/Sweep",
-      "second_lunch": "Water/Sweep",
-      "afternoon": "Water/Sweep"
+      "Morning": "Water/Sweep",
+      "1st Lunch": "Water/Sweep",
+      "2nd Lunch": "Water/Sweep",
+      "Afternoon": "Water/Sweep"
     },
     "18": {
-      "morning": "Out",
-      "first_lunch": "Out",
-      "second_lunch": "Out",
-      "afternoon": "Out"
+      "Morning": "Out",
+      "1st Lunch": "Out",
+      "2nd Lunch": "Out",
+      "Afternoon": "Out"
     }
   },
   "announcements": [
