@@ -347,27 +347,61 @@ async function initDashboard() {
   const data = await fetchData();
   const { employees, assignments, timeslots, announcements } = data;
 
-  // Update header with date
-  const header = document.querySelector('header h1');
+  // Update header with date and full-screen toggle
+  const header = document.querySelector('header');
   const today = new Date().toISOString().split('T')[0];
   const pointingDate = localStorage.getItem('task-assigner-pointing-date') || today;
   const formatDate = (dateStr) => {
     const d = new Date(dateStr + 'T00:00:00');
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
-  header.textContent = `Task Dashboard as of ${formatDate(pointingDate)}`;
 
-  // Display announcements if any exist
-  if (announcements && announcements.some(a => a.trim())) {
-    const announcSection = el('div', { style: 'margin-bottom:20px; padding:15px; background:#f5f5f5; border-left:4px solid #0b5cff;' });
+  header.innerHTML = '';
+  const title = el('h1', {}, `Task Dashboard as of ${formatDate(pointingDate)}`);
+  const fsBtn = el('button', { id: 'fullscreen-btn', type: 'button' }, 'Enter Full Screen');
+
+  const setFsLabel = () => {
+    fsBtn.textContent = document.fullscreenElement ? 'Exit Full Screen' : 'Enter Full Screen';
+  };
+
+  fsBtn.addEventListener('click', async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (err) {
+      console.error('Fullscreen toggle failed:', err);
+    }
+    setFsLabel();
+  });
+
+  document.addEventListener('fullscreenchange', setFsLabel);
+  header.appendChild(title);
+  header.appendChild(fsBtn);
+
+  // Display announcements always; highlight first if present
+  const announcSection = el('div', { style: 'margin-bottom:20px; padding:15px; background:#f5f5f5; border-left:4px solid #0b5cff;' });
+  const hasAnnouncements = announcements && announcements.some(a => a.trim());
+  announcSection.appendChild(el('h2', {}, 'Announcements'));
+
+  if (hasAnnouncements) {
     announcements.forEach((ann, idx) => {
+      const isFirst = idx === 0 && ann.trim();
+      const style = isFirst
+        ? 'margin-bottom:8px; padding:8px; background:#fff9c4; border-radius:4px; font-weight:bold;'
+        : 'margin-bottom:8px; padding:8px; background:white; border-radius:4px;';
       if (ann.trim()) {
-        const announcDiv = el('div', { style: 'margin-bottom:8px; padding:8px; background:white; border-radius:4px;' }, ann);
+        const announcDiv = el('div', { style }, ann);
         announcSection.appendChild(announcDiv);
       }
     });
-    content.appendChild(announcSection);
+  } else {
+    announcSection.appendChild(el('div', { style: 'padding:8px; background:white; border-radius:4px;' }, 'No announcements at this time.'));
   }
+
+  content.appendChild(announcSection);
 
   _dashboard.timeslots = timeslots;
   _dashboard.rows = {};
@@ -384,8 +418,9 @@ async function initDashboard() {
 
   const tbody = el('tbody');
   const sortedEmployees = sortEmployees(employees);
-  sortedEmployees.forEach(emp => {
+  sortedEmployees.forEach((emp, index) => {
     const tr = el('tr');
+    tr.style.background = index % 2 === 0 ? '#ffffff' : '#f9f9f9';
     const nameTd = el('td', {}, emp.name);
     tr.appendChild(nameTd);
     const cellMap = {};
