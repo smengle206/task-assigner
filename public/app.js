@@ -18,6 +18,15 @@ function sortEmployees(employees) {
   return [...employees].sort((a, b) => a.name.localeCompare(b.name));
 }
 
+// Highlight helpers
+function getHighlighted() {
+  return JSON.parse(localStorage.getItem('task-assigner-highlighted') || '[]');
+}
+
+function setHighlighted(ids) {
+  localStorage.setItem('task-assigner-highlighted', JSON.stringify(ids));
+}
+
 // Admin page - split into Manage and Assign views
 let adminView = 'assign'; // 'manage' or 'assign'
 
@@ -161,6 +170,7 @@ async function renderAdminAssign() {
   const table = el('table', { class: 'assign-table' });
   const thead = el('thead', {},
     el('tr', {},
+      el('th', {}, 'Highlight'),
       el('th', {}, 'Employee'),
       ...timeslots.map(t => el('th', {}, t))
     )
@@ -171,6 +181,22 @@ async function renderAdminAssign() {
   const sortedEmployees = sortEmployees(employees);
   sortedEmployees.forEach(emp => {
     const tr = el('tr');
+    // Highlight checkbox
+    const checkbox = el('input', { type: 'checkbox' });
+    checkbox.checked = getHighlighted().includes(emp.id);
+    checkbox.addEventListener('change', () => {
+      const highlighted = getHighlighted();
+      if (checkbox.checked) {
+        if (!highlighted.includes(emp.id)) highlighted.push(emp.id);
+      } else {
+        const idx = highlighted.indexOf(emp.id);
+        if (idx > -1) highlighted.splice(idx, 1);
+      }
+      setHighlighted(highlighted);
+    });
+    const tdCheckbox = el('td', {}, checkbox);
+    tr.appendChild(tdCheckbox);
+    // Employee name
     tr.appendChild(el('td', {}, emp.name));
     timeslots.forEach(ts => {
       const td = el('td', {});
@@ -431,6 +457,12 @@ async function initDashboard() {
     });
     tbody.appendChild(tr);
     _dashboard.rows[emp.id] = { nameCell: nameTd, cells: cellMap };
+    // Apply highlighting
+    const highlighted = getHighlighted();
+    if (highlighted.includes(emp.id)) {
+      tr.style.fontWeight = 'bold';
+      tr.style.backgroundColor = 'yellow';
+    }
   });
   table.appendChild(tbody);
   content.appendChild(table);
@@ -476,6 +508,22 @@ async function updateDashboard() {
       const newVal = assignments[emp.id][ts] || '';
       if (td.textContent !== newVal) td.textContent = newVal;
     });
+  });
+
+  // Apply highlighting to rows
+  const highlighted = getHighlighted();
+  Object.keys(_dashboard.rows).forEach(empId => {
+    const tr = _dashboard.rows[empId].nameCell.parentElement;
+    if (highlighted.includes(Number(empId))) {
+      tr.style.fontWeight = 'bold';
+      tr.style.backgroundColor = 'yellow';
+    } else {
+      tr.style.fontWeight = '';
+      tr.style.backgroundColor = '';
+      // Restore zebra if not highlighted
+      const index = Object.keys(_dashboard.rows).indexOf(empId);
+      tr.style.background = index % 2 === 0 ? '#ffffff' : '#f9f9f9';
+    }
   });
 }
 

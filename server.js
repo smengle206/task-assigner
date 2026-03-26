@@ -93,7 +93,7 @@ app.get('/api/data', (req, res) => {
 
 app.post('/api/login', (req, res) => {
   const { password } = req.body || {};
-  if (password === 'admin') {
+  if (password === 'pointing') {
     authToken = 'demo-token';
     return res.json({ ok: true, token: authToken });
   }
