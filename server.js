@@ -7,6 +7,12 @@ const PORT = process.env.PORT || 3000;
 
 const DATA_FILE = path.join(__dirname, 'data.json');
 
+// Disable caching for API responses so browsers always fetch fresh state
+app.use('/api', (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  next();
+});
+
 // Default data structure
 const defaultData = {
   tasks: Array.from({ length: 10 }, (_, i) => `Task ${i + 1}`),
@@ -79,7 +85,14 @@ const timeslots = ['Morning', '1st Lunch', '2nd Lunch', 'Afternoon'];
 const VALID_TOKEN = 'demo-token'; // Fixed token for all authenticated requests
 let authToken = null;
 
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+  etag: false,
+  setHeaders: (res, path) => {
+    if (path.endsWith('.html') || path.endsWith('.js') || path.endsWith('.css')) {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    }
+  }
+}));
 
 // serve admin page at /admin (so /admin works without .html)
 app.get('/admin', (req, res) => {

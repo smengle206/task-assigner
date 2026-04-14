@@ -1,5 +1,5 @@
 async function fetchData() {
-  const res = await fetch('/api/data');
+  const res = await fetch('/api/data', { cache: 'no-store' });
   return res.json();
 }
 
@@ -406,6 +406,19 @@ async function initDashboard() {
   document.addEventListener('fullscreenchange', setFsLabel);
   header.appendChild(title);
   header.appendChild(fsBtn);
+
+  const refreshBtn = el('button', { id: 'refresh-btn', type: 'button', style: 'margin-left:10px;' }, 'Refresh');
+  refreshBtn.addEventListener('click', async () => {
+    refreshBtn.disabled = true;
+    refreshBtn.textContent = 'Refreshing...';
+    try {
+      await updateDashboard();
+    } finally {
+      refreshBtn.disabled = false;
+      refreshBtn.textContent = 'Refresh';
+    }
+  });
+  header.appendChild(refreshBtn);
 
   // Display announcements always; highlight first if present
   const announcSection = el('div', { style: 'margin-bottom:20px; padding:15px; background:#f5f5f5; border-left:4px solid #0b5cff;' });
