@@ -184,4 +184,5 @@ app.post('/api/announcements/clear', (req, res) => {
   return res.json({ ok: true, announcements: data.announcements });
 });
 
+// TEMPORARY
 app.listen(PORT, () => console.log(`Server listening on http://localhost:${PORT}`));
