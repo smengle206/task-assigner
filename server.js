@@ -5,8 +5,12 @@ const app = express();
 app.use(express.json());
 const PORT = process.env.PORT || 3000;
 
-const DATA_FILE = path.join(__dirname, 'data.json');
+const DATA_DIR = process.env.DATA_DIR || __dirname;
+const DATA_FILE = path.join(DATA_DIR, 'data.json');
 
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
 // Default data structure
 const defaultData = {
   tasks: Array.from({ length: 10 }, (_, i) => `Task ${i + 1}`),
