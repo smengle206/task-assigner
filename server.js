@@ -184,36 +184,4 @@ app.post('/api/announcements/clear', (req, res) => {
   return res.json({ ok: true, announcements: data.announcements });
 });
 
-// TEMPORARY DATA IMPORT ROUTE
-// Remove this after the Railway /data/data.json file has been seeded.
-app.post('/api/temp-import-data', (req, res) => {
-  const { importToken, newData } = req.body || {};
-
-  if (importToken !== process.env.IMPORT_TOKEN) {
-    return res.status(401).json({ ok: false, message: 'unauthorized' });
-  }
-
-  if (!newData || typeof newData !== 'object') {
-    return res.status(400).json({ ok: false, message: 'missing newData object' });
-  }
-
-  if (!Array.isArray(newData.tasks) || !Array.isArray(newData.employees) || !newData.assignments) {
-    return res.status(400).json({ ok: false, message: 'invalid data shape' });
-  }
-
-  data = newData;
-
-  if (!data.announcements) {
-    data.announcements = ['', '', ''];
-  }
-
-  saveData();
-
-  return res.json({
-    ok: true,
-    employees: data.employees.length,
-    tasks: data.tasks.length
-  });
-});
-
 app.listen(PORT, () => console.log(`Server listening on http://localhost:${PORT}`));
