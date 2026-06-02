@@ -422,7 +422,7 @@ async function initDashboard() {
     announcements.forEach((ann, idx) => {
       const isFirst = idx === 0 && ann.trim();
       const style = isFirst
-        ? 'margin-bottom:8px; padding:8px; background:#fff9c4; border-radius:4px; font-weight:bold;'
+        ? 'margin-bottom:8px; padding:8px; background:yellow; border-radius:4px; font-weight:bold;'
         : 'margin-bottom:8px; padding:8px; background:white; border-radius:4px;';
       if (ann.trim()) {
         const announcDiv = el('div', { style }, ann);
