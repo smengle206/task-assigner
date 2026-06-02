@@ -18,6 +18,19 @@ function sortEmployees(employees) {
   return [...employees].sort((a, b) => a.name.localeCompare(b.name));
 }
 
+function getTodayDateValue() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function formatDate(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
 // Highlight helpers
 function getHighlighted() {
   return JSON.parse(localStorage.getItem('task-assigner-highlighted') || '[]');
@@ -137,15 +150,13 @@ async function renderAdminAssign() {
 
   // Update header with date picker
   const header = document.querySelector('header h1');
-  const today = new Date().toISOString().split('T')[0];
-  const savedDate = localStorage.getItem('task-assigner-pointing-date') || today;
-  localStorage.setItem('task-assigner-pointing-date', savedDate);
+  const selectedDate = sessionStorage.getItem('task-assigner-pointing-date') || getTodayDateValue();
   
   const headerContainer = el('div', { style: 'display:flex; align-items:center; gap:10px;' });
   headerContainer.appendChild(document.createTextNode('Daily Pointing for'));
-  const dateInput = el('input', { type: 'date', value: savedDate, style: 'padding:5px; font-size:14px;' });
+  const dateInput = el('input', { type: 'date', value: selectedDate, style: 'padding:5px; font-size:14px;' });
   dateInput.addEventListener('change', (e) => {
-    localStorage.setItem('task-assigner-pointing-date', e.target.value);
+    sessionStorage.setItem('task-assigner-pointing-date', e.target.value);
   });
   headerContainer.appendChild(dateInput);
   header.innerHTML = '';
@@ -375,12 +386,7 @@ async function initDashboard() {
 
   // Update header with date and full-screen toggle
   const header = document.querySelector('header');
-  const today = new Date().toISOString().split('T')[0];
-  const pointingDate = localStorage.getItem('task-assigner-pointing-date') || today;
-  const formatDate = (dateStr) => {
-    const d = new Date(dateStr + 'T00:00:00');
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  };
+  const pointingDate = getTodayDateValue();
 
   header.innerHTML = '';
   const title = el('h1', {}, `Task Dashboard as of ${formatDate(pointingDate)}`);
@@ -478,12 +484,7 @@ async function updateDashboard() {
 
   // Update header date in case it changed
   const header = document.querySelector('header h1');
-  const today = new Date().toISOString().split('T')[0];
-  const pointingDate = localStorage.getItem('task-assigner-pointing-date') || today;
-  const formatDate = (dateStr) => {
-    const d = new Date(dateStr + 'T00:00:00');
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  };
+  const pointingDate = getTodayDateValue();
   header.textContent = `Task Dashboard as of ${formatDate(pointingDate)}`;
 
   // If timeslots changed or employees changed (simple detection), rebuild
