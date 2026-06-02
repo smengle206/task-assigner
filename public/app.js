@@ -376,6 +376,8 @@ let _dashboard = {
   rows: {}, // rows[employeeId] = { nameCell, cells: { timeslot: td } }
   tableEl: null,
   announcementsHash: null, // track if announcements changed
+  eventSource: null,
+  updating: false,
 };
 
 async function initDashboard() {
@@ -478,54 +480,79 @@ async function initDashboard() {
 }
 
 async function updateDashboard() {
-  if (!_dashboard.built) return initDashboard();
-  const data = await fetchData();
-  const { employees, assignments, timeslots, announcements } = data;
-
-  // Update header date in case it changed
-  const header = document.querySelector('header h1');
-  const pointingDate = getTodayDateValue();
-  header.textContent = `Task Dashboard as of ${formatDate(pointingDate)}`;
-
-  // If timeslots changed or employees changed (simple detection), rebuild
-  const timesEqual = JSON.stringify(timeslots) === JSON.stringify(_dashboard.timeslots);
-  const empIds = employees.map(e => e.id).sort();
-  const existingIds = Object.keys(_dashboard.rows).map(x => Number(x)).sort();
-  
-  // Check if announcements changed
-  const currentAnnouncementsHash = JSON.stringify(announcements);
-  const announcementsChanged = currentAnnouncementsHash !== _dashboard.announcementsHash;
-  
-  if (!timesEqual || JSON.stringify(empIds) !== JSON.stringify(existingIds) || announcementsChanged) {
-    return initDashboard();
-  }
-
-  // update each cell textContent if changed
-  employees.forEach(emp => {
-    const row = _dashboard.rows[emp.id];
-    if (!row) return; // safety
-    timeslots.forEach(ts => {
-      const td = row.cells[ts];
-      const newVal = assignments[emp.id][ts] || '';
-      if (td.textContent !== newVal) td.textContent = newVal;
-    });
-  });
-
-  // Apply highlighting to rows
-  const highlighted = getHighlighted();
-  Object.keys(_dashboard.rows).forEach(empId => {
-    const tr = _dashboard.rows[empId].nameCell.parentElement;
-    if (highlighted.includes(Number(empId))) {
-      tr.style.fontWeight = 'bold';
-      tr.style.backgroundColor = 'yellow';
-    } else {
-      tr.style.fontWeight = '';
-      tr.style.backgroundColor = '';
-      // Restore zebra if not highlighted
-      const index = Object.keys(_dashboard.rows).indexOf(empId);
-      tr.style.background = index % 2 === 0 ? '#ffffff' : '#f9f9f9';
+  if (_dashboard.updating) return;
+  _dashboard.updating = true;
+  try {
+    if (!_dashboard.built) {
+      await initDashboard();
+      return;
     }
-  });
+    const data = await fetchData();
+    const { employees, assignments, timeslots, announcements } = data;
+
+    // Update header date in case it changed
+    const header = document.querySelector('header h1');
+    const pointingDate = getTodayDateValue();
+    header.textContent = `Task Dashboard as of ${formatDate(pointingDate)}`;
+
+    // If timeslots changed or employees changed (simple detection), rebuild
+    const timesEqual = JSON.stringify(timeslots) === JSON.stringify(_dashboard.timeslots);
+    const empIds = employees.map(e => e.id).sort();
+    const existingIds = Object.keys(_dashboard.rows).map(x => Number(x)).sort();
+
+    // Check if announcements changed
+    const currentAnnouncementsHash = JSON.stringify(announcements);
+    const announcementsChanged = currentAnnouncementsHash !== _dashboard.announcementsHash;
+
+    if (!timesEqual || JSON.stringify(empIds) !== JSON.stringify(existingIds) || announcementsChanged) {
+      await initDashboard();
+      return;
+    }
+
+    // update each cell textContent if changed
+    employees.forEach(emp => {
+      const row = _dashboard.rows[emp.id];
+      if (!row) return; // safety
+      timeslots.forEach(ts => {
+        const td = row.cells[ts];
+        const newVal = assignments[emp.id][ts] || '';
+        if (td.textContent !== newVal) td.textContent = newVal;
+      });
+    });
+
+    // Apply highlighting to rows
+    const highlighted = getHighlighted();
+    Object.keys(_dashboard.rows).forEach(empId => {
+      const tr = _dashboard.rows[empId].nameCell.parentElement;
+      if (highlighted.includes(Number(empId))) {
+        tr.style.fontWeight = 'bold';
+        tr.style.backgroundColor = 'yellow';
+      } else {
+        tr.style.fontWeight = '';
+        tr.style.backgroundColor = '';
+        // Restore zebra if not highlighted
+        const index = Object.keys(_dashboard.rows).indexOf(empId);
+        tr.style.background = index % 2 === 0 ? '#ffffff' : '#f9f9f9';
+      }
+    });
+  } catch (err) {
+    console.error('Dashboard update failed:', err);
+  } finally {
+    _dashboard.updating = false;
+  }
+}
+
+function startDashboardUpdates() {
+  initDashboard();
+  setInterval(updateDashboard, 5000);
+
+  if (!window.EventSource || _dashboard.eventSource) return;
+  const eventSource = new EventSource('/api/events');
+  eventSource.onmessage = updateDashboard;
+  eventSource.onerror = (err) => {
+    console.error('Dashboard event stream interrupted; polling fallback remains active.', err);
+  };
+  _dashboard.eventSource = eventSource;
 }
 
 // Boot
@@ -533,9 +560,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const id = document.body.id;
   if (id === 'admin') renderAdmin();
   else {
-    initDashboard();
-    // poll for updates every 5 seconds and update in-place
-    setInterval(updateDashboard, 5000);
+    startDashboardUpdates();
   }
 
   // no manual reload button on dashboard to avoid full page refresh

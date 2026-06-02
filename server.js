@@ -82,6 +82,12 @@ loadData();
 const timeslots = ['Morning', '1st Lunch', '2nd Lunch', 'Afternoon'];
 const VALID_TOKEN = 'demo-token'; // Fixed token for all authenticated requests
 let authToken = null;
+const eventClients = new Set();
+
+function notifyDataChanged() {
+  const message = `data: ${JSON.stringify({ updatedAt: Date.now() })}\n\n`;
+  eventClients.forEach(client => client.write(message));
+}
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -93,6 +99,21 @@ app.get('/admin', (req, res) => {
 app.get('/api/data', (req, res) => {
   const announcements = data.announcements || ['', '', ''];
   res.json({ tasks: data.tasks, employees: data.employees, assignments: data.assignments, timeslots, announcements });
+});
+
+app.get('/api/events', (req, res) => {
+  res.set({
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive'
+  });
+  res.flushHeaders();
+  res.write('event: connected\ndata: {}\n\n');
+
+  eventClients.add(res);
+  req.on('close', () => {
+    eventClients.delete(res);
+  });
 });
 
 app.post('/api/login', (req, res) => {
@@ -112,6 +133,7 @@ app.post('/api/assign', (req, res) => {
   if (!timeslots.includes(timeslot)) return res.status(400).json({ ok: false, message: 'invalid timeslot' });
   data.assignments[empId][timeslot] = task || '';
   saveData();
+  notifyDataChanged();
   return res.json({ ok: true });
 });
 
@@ -123,6 +145,7 @@ app.post('/api/tasks', (req, res) => {
   const trimmed = taskName.trim();
   if (!data.tasks.includes(trimmed)) data.tasks.push(trimmed);
   saveData();
+  notifyDataChanged();
   return res.json({ ok: true, tasks: data.tasks });
 });
 
@@ -134,6 +157,7 @@ app.delete('/api/tasks/:taskName', (req, res) => {
   const idx = data.tasks.indexOf(taskName);
   if (idx >= 0) data.tasks.splice(idx, 1);
   saveData();
+  notifyDataChanged();
   return res.json({ ok: true, tasks: data.tasks });
 });
 
@@ -146,8 +170,9 @@ app.post('/api/employees', (req, res) => {
   const maxId = data.employees.length > 0 ? Math.max(...data.employees.map(e => e.id)) : 0;
   const newId = maxId + 1;
   data.employees.push({ id: newId, name: trimmed });
-  data.assignments[newId] = { morning: '', first_lunch: '', second_lunch: '', afternoon: '' };
+  data.assignments[newId] = Object.fromEntries(timeslots.map(timeslot => [timeslot, '']));
   saveData();
+  notifyDataChanged();
   return res.json({ ok: true, employee: { id: newId, name: trimmed }, employees: data.employees });
 });
 
@@ -162,6 +187,7 @@ app.delete('/api/employees/:empId', (req, res) => {
     delete data.assignments[empId];
   }
   saveData();
+  notifyDataChanged();
   return res.json({ ok: true, employees: data.employees });
 });
 
@@ -172,6 +198,7 @@ app.post('/api/announcements', (req, res) => {
   if (!Array.isArray(announcements) || announcements.length !== 3) return res.status(400).json({ ok: false, message: 'invalid announcements' });
   data.announcements = announcements.map(a => String(a || ''));
   saveData();
+  notifyDataChanged();
   return res.json({ ok: true, announcements: data.announcements });
 });
 
@@ -181,6 +208,7 @@ app.post('/api/announcements/clear', (req, res) => {
   if (token !== authToken) return res.status(401).json({ ok: false, message: 'unauthorized' });
   data.announcements = ['', '', ''];
   saveData();
+  notifyDataChanged();
   return res.json({ ok: true, announcements: data.announcements });
 });
 
