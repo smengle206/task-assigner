@@ -31,13 +31,17 @@ function formatDate(dateStr) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-// Highlight helpers
-function getHighlighted() {
-  return JSON.parse(localStorage.getItem('task-assigner-highlighted') || '[]');
-}
+async function saveHighlighted(employeeIds, token) {
+  const response = await fetch('/api/highlights', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ employeeIds, token })
+  });
 
-function setHighlighted(ids) {
-  localStorage.setItem('task-assigner-highlighted', JSON.stringify(ids));
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || 'Failed to save highlights');
+  }
 }
 
 // Admin page - split into Manage and Assign views
@@ -146,17 +150,22 @@ async function renderAdminAssign() {
   content.innerHTML = '';
   const token = localStorage.getItem('task-assigner-token');
   const data = await fetchData();
-  const { employees, tasks, assignments, timeslots } = data;
+  const { employees, tasks, assignments, timeslots, pointingDate, highlightedEmployeeIds } = data;
+  let highlighted = [...(highlightedEmployeeIds || [])];
 
   // Update header with date picker
   const header = document.querySelector('header h1');
-  const selectedDate = sessionStorage.getItem('task-assigner-pointing-date') || getTodayDateValue();
+  const selectedDate = pointingDate || getTodayDateValue();
   
   const headerContainer = el('div', { style: 'display:flex; align-items:center; gap:10px;' });
   headerContainer.appendChild(document.createTextNode('Daily Pointing for'));
   const dateInput = el('input', { type: 'date', value: selectedDate, style: 'padding:5px; font-size:14px;' });
-  dateInput.addEventListener('change', (e) => {
-    sessionStorage.setItem('task-assigner-pointing-date', e.target.value);
+  dateInput.addEventListener('change', async (e) => {
+    await fetch('/api/date', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pointingDate: e.target.value, token })
+    });
   });
   headerContainer.appendChild(dateInput);
   header.innerHTML = '';
@@ -194,16 +203,22 @@ async function renderAdminAssign() {
     const tr = el('tr');
     // Highlight checkbox
     const checkbox = el('input', { type: 'checkbox' });
-    checkbox.checked = getHighlighted().includes(emp.id);
-    checkbox.addEventListener('change', () => {
-      const highlighted = getHighlighted();
-      if (checkbox.checked) {
-        if (!highlighted.includes(emp.id)) highlighted.push(emp.id);
-      } else {
-        const idx = highlighted.indexOf(emp.id);
-        if (idx > -1) highlighted.splice(idx, 1);
+    checkbox.checked = highlighted.includes(emp.id);
+    checkbox.addEventListener('change', async () => {
+      const previousHighlighted = [...highlighted];
+      if (checkbox.checked && !highlighted.includes(emp.id)) {
+        highlighted.push(emp.id);
+      } else if (!checkbox.checked) {
+        highlighted = highlighted.filter(id => id !== emp.id);
       }
-      setHighlighted(highlighted);
+
+      try {
+        await saveHighlighted(highlighted, token);
+      } catch (err) {
+        highlighted = previousHighlighted;
+        checkbox.checked = previousHighlighted.includes(emp.id);
+        alert(err.message);
+      }
     });
     const tdCheckbox = el('td', {}, checkbox);
     tr.appendChild(tdCheckbox);
@@ -376,6 +391,8 @@ let _dashboard = {
   rows: {}, // rows[employeeId] = { nameCell, cells: { timeslot: td } }
   tableEl: null,
   announcementsHash: null, // track if announcements changed
+  pointingDate: null,
+  highlightedEmployeeIds: [],
   eventSource: null,
   updating: false,
 };
@@ -384,14 +401,14 @@ async function initDashboard() {
   const content = document.getElementById('content');
   content.innerHTML = '';
   const data = await fetchData();
-  const { employees, assignments, timeslots, announcements } = data;
+  const { employees, assignments, timeslots, announcements, pointingDate, highlightedEmployeeIds } = data;
 
   // Update header with date and full-screen toggle
   const header = document.querySelector('header');
-  const pointingDate = getTodayDateValue();
+  const selectedDate = pointingDate || getTodayDateValue();
 
   header.innerHTML = '';
-  const title = el('h1', {}, `Task Dashboard as of ${formatDate(pointingDate)}`);
+  const title = el('h1', {}, `Task Dashboard as of ${formatDate(selectedDate)}`);
   const fsBtn = el('button', { id: 'fullscreen-btn', type: 'button' }, 'Enter Full Screen');
 
   const setFsLabel = () => {
@@ -440,6 +457,8 @@ async function initDashboard() {
   _dashboard.timeslots = timeslots;
   _dashboard.rows = {};
   _dashboard.announcementsHash = JSON.stringify(announcements);
+  _dashboard.pointingDate = selectedDate;
+  _dashboard.highlightedEmployeeIds = highlightedEmployeeIds || [];
 
   const table = el('table', { class: 'assign-table' });
   const thead = el('thead', {},
@@ -465,9 +484,7 @@ async function initDashboard() {
     });
     tbody.appendChild(tr);
     _dashboard.rows[emp.id] = { nameCell: nameTd, cells: cellMap };
-    // Apply highlighting
-    const highlighted = getHighlighted();
-    if (highlighted.includes(emp.id)) {
+    if (_dashboard.highlightedEmployeeIds.includes(emp.id)) {
       tr.style.fontWeight = 'bold';
       tr.style.backgroundColor = 'yellow';
     }
@@ -488,12 +505,13 @@ async function updateDashboard() {
       return;
     }
     const data = await fetchData();
-    const { employees, assignments, timeslots, announcements } = data;
+    const { employees, assignments, timeslots, announcements, pointingDate, highlightedEmployeeIds } = data;
 
     // Update header date in case it changed
     const header = document.querySelector('header h1');
-    const pointingDate = getTodayDateValue();
-    header.textContent = `Task Dashboard as of ${formatDate(pointingDate)}`;
+    const selectedDate = pointingDate || getTodayDateValue();
+    header.textContent = `Task Dashboard as of ${formatDate(selectedDate)}`;
+    _dashboard.pointingDate = selectedDate;
 
     // If timeslots changed or employees changed (simple detection), rebuild
     const timesEqual = JSON.stringify(timeslots) === JSON.stringify(_dashboard.timeslots);
@@ -520,11 +538,10 @@ async function updateDashboard() {
       });
     });
 
-    // Apply highlighting to rows
-    const highlighted = getHighlighted();
+    _dashboard.highlightedEmployeeIds = highlightedEmployeeIds || [];
     Object.keys(_dashboard.rows).forEach(empId => {
       const tr = _dashboard.rows[empId].nameCell.parentElement;
-      if (highlighted.includes(Number(empId))) {
+      if (_dashboard.highlightedEmployeeIds.includes(Number(empId))) {
         tr.style.fontWeight = 'bold';
         tr.style.backgroundColor = 'yellow';
       } else {

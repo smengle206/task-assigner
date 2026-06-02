@@ -11,6 +11,15 @@ const DATA_FILE = path.join(DATA_DIR, 'data.json');
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
+
+function getTodayDateValue() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 // Default data structure
 const defaultData = {
   tasks: Array.from({ length: 10 }, (_, i) => `Task ${i + 1}`),
@@ -33,7 +42,9 @@ const defaultData = {
   { id: 16, name: 'Priya Singh' }
   ],
   assignments: {},
-  announcements: ['', '', '']
+  announcements: ['', '', ''],
+  pointingDate: getTodayDateValue(),
+  highlightedEmployeeIds: []
 };
 
 // Initialize default assignments
@@ -56,6 +67,14 @@ function loadData() {
       // Ensure announcements field exists
       if (!data.announcements) {
         data.announcements = ['', '', ''];
+        saveData();
+      }
+      if (!data.pointingDate) {
+        data.pointingDate = getTodayDateValue();
+        saveData();
+      }
+      if (!Array.isArray(data.highlightedEmployeeIds)) {
+        data.highlightedEmployeeIds = [];
         saveData();
       }
     } else {
@@ -98,7 +117,9 @@ app.get('/admin', (req, res) => {
 
 app.get('/api/data', (req, res) => {
   const announcements = data.announcements || ['', '', ''];
-  res.json({ tasks: data.tasks, employees: data.employees, assignments: data.assignments, timeslots, announcements });
+  const pointingDate = data.pointingDate || getTodayDateValue();
+  const highlightedEmployeeIds = Array.isArray(data.highlightedEmployeeIds) ? data.highlightedEmployeeIds : [];
+  res.json({ tasks: data.tasks, employees: data.employees, assignments: data.assignments, timeslots, announcements, pointingDate, highlightedEmployeeIds });
 });
 
 app.get('/api/events', (req, res) => {
@@ -135,6 +156,32 @@ app.post('/api/assign', (req, res) => {
   saveData();
   notifyDataChanged();
   return res.json({ ok: true });
+});
+
+app.post('/api/date', (req, res) => {
+  const { pointingDate, token } = req.body || {};
+  if (token !== authToken) return res.status(401).json({ ok: false, message: 'unauthorized' });
+  if (typeof pointingDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(pointingDate)) {
+    return res.status(400).json({ ok: false, message: 'invalid date' });
+  }
+  data.pointingDate = pointingDate;
+  saveData();
+  notifyDataChanged();
+  return res.json({ ok: true, pointingDate: data.pointingDate });
+});
+
+app.post('/api/highlights', (req, res) => {
+  const { employeeIds, token } = req.body || {};
+  if (token !== authToken) return res.status(401).json({ ok: false, message: 'unauthorized' });
+  if (!Array.isArray(employeeIds)) return res.status(400).json({ ok: false, message: 'invalid employee ids' });
+
+  const validEmployeeIds = new Set(data.employees.map(employee => Number(employee.id)));
+  data.highlightedEmployeeIds = [...new Set(employeeIds.map(Number))]
+    .filter(employeeId => validEmployeeIds.has(employeeId));
+
+  saveData();
+  notifyDataChanged();
+  return res.json({ ok: true, highlightedEmployeeIds: data.highlightedEmployeeIds });
 });
 
 // Add new task to the global task list
@@ -185,6 +232,7 @@ app.delete('/api/employees/:empId', (req, res) => {
   if (idx >= 0) {
     data.employees.splice(idx, 1);
     delete data.assignments[empId];
+    data.highlightedEmployeeIds = (data.highlightedEmployeeIds || []).filter(id => Number(id) !== empId);
   }
   saveData();
   notifyDataChanged();
