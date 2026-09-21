@@ -24,7 +24,8 @@ function getSupervisorName(employee) {
   return (employee.supervisor || '').trim() || 'Unassigned';
 }
 
-function groupEmployeesBySupervisor(employees) {
+function groupEmployeesBySupervisor(employees, enabled = true) {
+  if (!enabled) return [{ supervisor: null, employees: sortEmployees(employees) }];
   const groups = new Map();
   sortEmployees(employees).forEach(employee => {
     const supervisor = getSupervisorName(employee);
@@ -142,6 +143,10 @@ async function renderAdminSupervisors() {
   const form = el('form');
   const input = el('textarea', { id: 'supervisor-list', rows: '12', 'aria-describedby': 'supervisor-help' });
   input.value = data.supervisors.join('\n');
+  const grouping = el('input', { type: 'checkbox', id: 'group-by-supervisor' });
+  grouping.checked = data.groupBySupervisor !== false;
+  form.appendChild(el('label', { for: 'group-by-supervisor' }, grouping, ' Group employees by supervisor'));
+  form.appendChild(el('p', {}, 'Applies to Assign Tasks and the dashboard. When disabled, employees appear in one alphabetical list.'));
   const save = el('button', { type: 'submit' }, 'Save Supervisors');
   const status = el('p', { role: 'status' });
   form.appendChild(el('label', { for: 'supervisor-list' }, 'Supervisors'));
@@ -150,11 +155,12 @@ async function renderAdminSupervisors() {
   form.appendChild(save);
   form.appendChild(status);
   input.addEventListener('input', () => { status.textContent = ''; });
+  grouping.addEventListener('change', () => { status.textContent = ''; });
   form.addEventListener('submit', async event => {
     event.preventDefault();
     save.disabled = true;
     try {
-      const result = await writeJson('/api/supervisors', { supervisors: input.value.split(/\r?\n/), token });
+      const result = await writeJson('/api/supervisors', { supervisors: input.value.split(/\r?\n/), groupBySupervisor: grouping.checked, token });
       input.value = result.supervisors.join('\n');
       status.textContent = 'Supervisors saved.';
     } catch (err) {
@@ -338,9 +344,9 @@ async function renderAdminAssign() {
   table.appendChild(thead);
 
   const tbody = el('tbody');
-  const supervisorGroups = groupEmployeesBySupervisor(employees);
+  const supervisorGroups = groupEmployeesBySupervisor(employees, data.groupBySupervisor !== false);
   supervisorGroups.forEach(group => {
-    tbody.appendChild(el('tr', { class: 'supervisor-row' },
+    if (group.supervisor !== null) tbody.appendChild(el('tr', { class: 'supervisor-row' },
       el('th', { colspan: String(timeslots.length + 2) }, `Supervisor: ${group.supervisor}`)
     ));
     group.employees.forEach(emp => {
@@ -590,6 +596,7 @@ async function initDashboard() {
 
   content.appendChild(announcSection);
 
+  _dashboard.groupBySupervisor = data.groupBySupervisor !== false;
   _dashboard.timeslots = timeslots;
   _dashboard.rows = {};
   _dashboard.announcementsHash = JSON.stringify(announcements);
@@ -611,10 +618,10 @@ async function initDashboard() {
   table.appendChild(thead);
 
   const tbody = el('tbody');
-  const supervisorGroups = groupEmployeesBySupervisor(employees);
+  const supervisorGroups = groupEmployeesBySupervisor(employees, data.groupBySupervisor !== false);
   let employeeIndex = 0;
   supervisorGroups.forEach(group => {
-    tbody.appendChild(el('tr', { class: 'supervisor-row' },
+    if (group.supervisor !== null) tbody.appendChild(el('tr', { class: 'supervisor-row' },
       el('th', { colspan: String(timeslots.length + 1) }, `Supervisor: ${group.supervisor}`)
     ));
     group.employees.forEach(emp => {
@@ -673,7 +680,7 @@ async function updateDashboard() {
     const currentAnnouncementsHash = JSON.stringify(announcements);
     const announcementsChanged = currentAnnouncementsHash !== _dashboard.announcementsHash;
 
-    if (!timesEqual || employeeHash !== _dashboard.employeeHash || announcementsChanged) {
+    if ((data.groupBySupervisor !== false) !== _dashboard.groupBySupervisor || !timesEqual || employeeHash !== _dashboard.employeeHash || announcementsChanged) {
       await initDashboard();
       return;
     }

@@ -43,6 +43,7 @@ const defaultData = {
   { id: 16, name: 'Priya Singh', supervisor: 'Unassigned' }
   ],
   supervisors: [],
+  groupBySupervisor: true,
   assignments: {},
   announcements: ['', '', ''],
   pointingDate: getTodayDateValue(),
@@ -78,6 +79,10 @@ function loadData() {
             changed = true;
           }
         });
+      }
+      if (typeof data.groupBySupervisor !== 'boolean') {
+        data.groupBySupervisor = true;
+        changed = true;
       }
       if (!Array.isArray(data.supervisors)) {
         data.supervisors = [...new Set(data.employees.map(employee => employee.supervisor.trim())
@@ -163,7 +168,7 @@ app.get('/api/data', (req, res) => {
   const announcements = data.announcements || ['', '', ''];
   const pointingDate = data.pointingDate || getTodayDateValue();
   const highlightedEmployeeIds = Array.isArray(data.highlightedEmployeeIds) ? data.highlightedEmployeeIds : [];
-  res.json({ dataVersion: data.dataVersion, tasks: data.tasks, supervisors: data.supervisors, employees: data.employees, assignments: data.assignments, timeslots, announcements, pointingDate, highlightedEmployeeIds });
+  res.json({ dataVersion: data.dataVersion, tasks: data.tasks, supervisors: data.supervisors, groupBySupervisor: data.groupBySupervisor, employees: data.employees, assignments: data.assignments, timeslots, announcements, pointingDate, highlightedEmployeeIds });
 });
 
 app.get('/api/events', (req, res) => {
@@ -259,11 +264,14 @@ app.delete('/api/tasks/:taskName', (req, res) => {
 
 // Save the configured supervisor list without changing employee assignments.
 app.post('/api/supervisors', (req, res) => {
-  const { supervisors, token } = req.body || {};
+  const { supervisors, groupBySupervisor, token } = req.body || {};
   if (!token || token !== authToken) return res.status(401).json({ ok: false, message: 'unauthorized' });
   if (!checkWriteVersion(req, res)) return;
   if (!Array.isArray(supervisors) || supervisors.some(name => typeof name !== 'string')) {
     return res.status(400).json({ ok: false, message: 'invalid supervisor list' });
+  }
+  if (groupBySupervisor !== undefined && typeof groupBySupervisor !== 'boolean') {
+    return res.status(400).json({ ok: false, message: 'invalid grouping setting' });
   }
   const names = [...new Set(supervisors.map(name => name.trim()).filter(name => name && name !== 'Unassigned'))];
   const inUse = [...new Set(data.employees.map(employee => employee.supervisor)
@@ -272,9 +280,10 @@ app.post('/api/supervisors', (req, res) => {
     return res.status(400).json({ ok: false, message: `Reassign employees before removing these supervisors: ${inUse.join('; ')}` });
   }
   data.supervisors = names;
+  if (typeof groupBySupervisor === 'boolean') data.groupBySupervisor = groupBySupervisor;
   saveData();
   notifyDataChanged();
-  return writeOk(res, { supervisors: data.supervisors });
+  return writeOk(res, { supervisors: data.supervisors, groupBySupervisor: data.groupBySupervisor });
 });
 
 // Add new employee
