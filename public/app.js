@@ -1,6 +1,8 @@
 async function fetchData() {
   const res = await fetch('/api/data');
-  return res.json();
+  const data = await res.json();
+  currentDataVersion = data.dataVersion;
+  return data;
 }
 
 function el(tag, attrs = {}, ...children) {
@@ -16,6 +18,27 @@ function el(tag, attrs = {}, ...children) {
 // Sort employees alphabetically by name
 function sortEmployees(employees) {
   return [...employees].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function getSupervisorName(employee) {
+  return (employee.supervisor || '').trim() || 'Unassigned';
+}
+
+function groupEmployeesBySupervisor(employees) {
+  const groups = new Map();
+  sortEmployees(employees).forEach(employee => {
+    const supervisor = getSupervisorName(employee);
+    if (!groups.has(supervisor)) groups.set(supervisor, []);
+    groups.get(supervisor).push(employee);
+  });
+
+  return [...groups.entries()]
+    .sort(([a], [b]) => {
+      if (a === 'Unassigned') return 1;
+      if (b === 'Unassigned') return -1;
+      return a.localeCompare(b);
+    })
+    .map(([supervisor, groupedEmployees]) => ({ supervisor, employees: groupedEmployees }));
 }
 
 function getTodayDateValue() {
@@ -35,73 +58,193 @@ async function saveHighlighted(employeeIds, token) {
   const response = await fetch('/api/highlights', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ employeeIds, token })
+    body: JSON.stringify({ employeeIds, token, expectedVersion: currentDataVersion })
   });
 
+  const responseData = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || 'Failed to save highlights');
+    throw new Error(responseData.message || 'Failed to save highlights');
+  }
+  updateDataVersion(responseData);
+}
+
+let currentDataVersion = null;
+
+function updateDataVersion(responseData) {
+  if (responseData && typeof responseData.dataVersion === 'number') {
+    currentDataVersion = responseData.dataVersion;
   }
 }
 
-// Admin page - split into Manage and Assign views
-let adminView = 'assign'; // 'manage' or 'assign'
+async function writeJson(url, body, options = {}) {
+  const response = await fetch(url, {
+    method: options.method || 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...body, expectedVersion: currentDataVersion })
+  });
+  const responseData = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(responseData.message || 'Save failed');
+  }
+  updateDataVersion(responseData);
+  return responseData;
+}
+
+async function writeDelete(url) {
+  const separator = url.includes('?') ? '&' : '?';
+  const response = await fetch(`${url}${separator}expectedVersion=${encodeURIComponent(currentDataVersion)}`, { method: 'DELETE' });
+  const responseData = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(responseData.message || 'Delete failed');
+  }
+  updateDataVersion(responseData);
+  return responseData;
+}
+
+function handleWriteError(err) {
+  alert(err.message);
+  if (/another supervisor|refresh/i.test(err.message)) {
+    renderAdmin();
+  }
+}
+
+// Admin page views
+let adminView = 'assign';
+
+function adminNavigation() {
+  const nav = el('nav', { class: 'admin-nav', 'aria-label': 'Admin sections' });
+  [['manage', 'Manage'], ['assign', 'Assign Tasks'], ['supervisors', 'Supervisor Setup'], ['announcements', 'Announcements']].forEach(([view, label]) => {
+    const button = el('button', { type: 'button', class: adminView === view ? 'active' : '', 'aria-current': adminView === view ? 'page' : 'false' }, label);
+    button.addEventListener('click', () => { adminView = view; renderAdmin(); });
+    nav.appendChild(button);
+  });
+  return nav;
+}
+
+function supervisorSelect(supervisors, selected, attrs) {
+  const select = el('select', attrs);
+  ['Unassigned', ...[...supervisors].sort((a, b) => a.localeCompare(b))].forEach(name => {
+    select.appendChild(el('option', { value: name }, name));
+  });
+  select.value = selected;
+  return select;
+}
+
+async function renderAdminSupervisors() {
+  const content = document.getElementById('content');
+  content.innerHTML = '';
+  const token = localStorage.getItem('task-assigner-token');
+  const data = await fetchData();
+  document.querySelector('header h1').textContent = 'Supervisor Assignments';
+  content.appendChild(adminNavigation());
+  const section = el('section', { id: 'supervisor-setup' });
+  section.appendChild(el('h2', {}, 'Supervisor Setup'));
+  const form = el('form');
+  const input = el('textarea', { id: 'supervisor-list', rows: '12', 'aria-describedby': 'supervisor-help' });
+  input.value = data.supervisors.join('\n');
+  const save = el('button', { type: 'submit' }, 'Save Supervisors');
+  const status = el('p', { role: 'status' });
+  form.appendChild(el('label', { for: 'supervisor-list' }, 'Supervisors'));
+  form.appendChild(el('p', { id: 'supervisor-help' }, 'Enter one supervisor per line. Reassign employees before removing their supervisor. Unassigned is always available.'));
+  form.appendChild(input);
+  form.appendChild(save);
+  form.appendChild(status);
+  input.addEventListener('input', () => { status.textContent = ''; });
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    save.disabled = true;
+    try {
+      const result = await writeJson('/api/supervisors', { supervisors: input.value.split(/\r?\n/), token });
+      input.value = result.supervisors.join('\n');
+      status.textContent = 'Supervisors saved.';
+    } catch (err) {
+      handleWriteError(err);
+    } finally {
+      save.disabled = false;
+    }
+  });
+  section.appendChild(form);
+  content.appendChild(section);
+  const logout = el('button', {}, 'Logout');
+  logout.addEventListener('click', () => { localStorage.removeItem('task-assigner-token'); renderAdmin(); });
+  content.appendChild(logout);
+}
 
 async function renderAdminManage() {
   const content = document.getElementById('content');
   content.innerHTML = '';
   const token = localStorage.getItem('task-assigner-token');
   const data = await fetchData();
-  const { employees, tasks } = data;
+  const { employees, tasks, supervisors } = data;
   
   // Update header back to default
   const header = document.querySelector('header h1');
   header.textContent = 'Supervisor Assignments';
 
-  // Navigation
-  const nav = el('nav', { style: 'margin-bottom:20px; border-bottom: 2px solid #0b5cff; padding-bottom:10px;' });
-  const manageBtn = el('button', { style: 'padding:10px 20px; margin-right:10px; background:#0b5cff; color:white; border:none; cursor:pointer; font-weight:bold;' }, 'Manage');
-  const assignBtn = el('button', { style: 'padding:10px 20px; margin-right:10px; background:#ddd; border:none; cursor:pointer;' }, 'Assign Tasks');
-  const announcBtn = el('button', { style: 'padding:10px 20px; background:#ddd; border:none; cursor:pointer;' }, 'Announcements');
-  manageBtn.addEventListener('click', () => { adminView = 'manage'; renderAdminManage(); });
-  assignBtn.addEventListener('click', () => { adminView = 'assign'; renderAdminAssign(); });
-  announcBtn.addEventListener('click', () => { adminView = 'announcements'; renderAdminAnnouncements(); });
-  nav.appendChild(manageBtn);
-  nav.appendChild(assignBtn);
-  nav.appendChild(announcBtn);
-  content.appendChild(nav);
+  content.appendChild(adminNavigation());
 
   // Employee Management Section
   const empMgmtSection = el('div', { id: 'emp-mgmt' });
   empMgmtSection.appendChild(el('h2', {}, 'Manage Employees'));
   const addEmpForm = el('form', {});
   const empNameInput = el('input', { type: 'text', id: 'emp-name', placeholder: 'Employee name', title: 'Enter name as: Lastname, Firstname (e.g., Smith, John)' });
+  const empSupervisorInput = supervisorSelect(supervisors, 'Unassigned', { id: 'emp-supervisor', 'aria-label': 'Supervisor for new employee' });
   const addEmpBtn = el('button', { type: 'submit' }, 'Add Employee');
   addEmpForm.appendChild(empNameInput);
+  addEmpForm.appendChild(empSupervisorInput);
   addEmpForm.appendChild(addEmpBtn);
   addEmpForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = empNameInput.value.trim();
+    const supervisor = empSupervisorInput.value.trim();
     if (!name) return;
-    await fetch('/api/employees', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, token }) });
-    empNameInput.value = '';
-    renderAdminManage();
+    try {
+      await writeJson('/api/employees', { name, supervisor, token });
+      empNameInput.value = '';
+      empSupervisorInput.value = '';
+      renderAdminManage();
+    } catch (err) {
+      handleWriteError(err);
+    }
   });
   empMgmtSection.appendChild(addEmpForm);
 
-  const empList = el('ul', {});
+  const empList = el('div', { class: 'employee-list' });
   const sortedEmployees = sortEmployees(employees);
   sortedEmployees.forEach(emp => {
-    const li = el('li', {});
-    li.appendChild(document.createTextNode(emp.name));
+    const row = el('div', { class: 'employee-row' });
+    const nameInput = el('input', { type: 'text', value: emp.name, 'aria-label': `Employee name for ${emp.name}` });
+    const supervisorInput = supervisorSelect(supervisors, getSupervisorName(emp), { 'aria-label': `Supervisor for ${emp.name}` });
+    const saveBtn = el('button', {}, 'Save');
     const delBtn = el('button', {}, 'Delete');
+
+    saveBtn.addEventListener('click', async () => {
+      try {
+        await writeJson(`/api/employees/${emp.id}`, {
+          name: nameInput.value,
+          supervisor: supervisorInput.value,
+          token
+        }, { method: 'PATCH' });
+        renderAdminManage();
+      } catch (err) {
+        handleWriteError(err);
+      }
+    });
+
     delBtn.addEventListener('click', async () => {
       if (!confirm(`Delete employee "${emp.name}"?`)) return;
-      await fetch(`/api/employees/${emp.id}?token=${encodeURIComponent(token)}`, { method: 'DELETE' });
-      renderAdminManage();
+      try {
+        await writeDelete(`/api/employees/${emp.id}?token=${encodeURIComponent(token)}`);
+        renderAdminManage();
+      } catch (err) {
+        handleWriteError(err);
+      }
     });
-    li.appendChild(delBtn);
-    empList.appendChild(li);
+    row.appendChild(nameInput);
+    row.appendChild(supervisorInput);
+    row.appendChild(saveBtn);
+    row.appendChild(delBtn);
+    empList.appendChild(row);
   });
   empMgmtSection.appendChild(empList);
   content.appendChild(empMgmtSection);
@@ -118,9 +261,13 @@ async function renderAdminManage() {
     e.preventDefault();
     const taskName = taskNameInput.value.trim();
     if (!taskName) return;
-    await fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ taskName, token }) });
-    taskNameInput.value = '';
-    renderAdminManage();
+    try {
+      await writeJson('/api/tasks', { taskName, token });
+      taskNameInput.value = '';
+      renderAdminManage();
+    } catch (err) {
+      handleWriteError(err);
+    }
   });
   taskMgmtSection.appendChild(addTaskForm);
 
@@ -131,8 +278,12 @@ async function renderAdminManage() {
     const delBtn = el('button', {}, 'Delete');
     delBtn.addEventListener('click', async () => {
       if (!confirm(`Delete task "${task}"?`)) return;
-      await fetch(`/api/tasks/${encodeURIComponent(task)}?token=${encodeURIComponent(token)}`, { method: 'DELETE' });
-      renderAdminManage();
+      try {
+        await writeDelete(`/api/tasks/${encodeURIComponent(task)}?token=${encodeURIComponent(token)}`);
+        renderAdminManage();
+      } catch (err) {
+        handleWriteError(err);
+      }
     });
     li.appendChild(delBtn);
     taskList.appendChild(li);
@@ -161,28 +312,17 @@ async function renderAdminAssign() {
   headerContainer.appendChild(document.createTextNode('Daily Pointing for'));
   const dateInput = el('input', { type: 'date', value: selectedDate, style: 'padding:5px; font-size:14px;' });
   dateInput.addEventListener('change', async (e) => {
-    await fetch('/api/date', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pointingDate: e.target.value, token })
-    });
+    try {
+      await writeJson('/api/date', { pointingDate: e.target.value, token });
+    } catch (err) {
+      handleWriteError(err);
+    }
   });
   headerContainer.appendChild(dateInput);
   header.innerHTML = '';
   header.appendChild(headerContainer);
 
-  // Navigation
-  const nav = el('nav', { style: 'margin-bottom:20px; border-bottom: 2px solid #0b5cff; padding-bottom:10px;' });
-  const manageBtn = el('button', { style: 'padding:10px 20px; margin-right:10px; background:#ddd; border:none; cursor:pointer;' }, 'Manage');
-  const assignBtn = el('button', { style: 'padding:10px 20px; margin-right:10px; background:#0b5cff; color:white; border:none; cursor:pointer; font-weight:bold;' }, 'Assign Tasks');
-  const announcBtn = el('button', { style: 'padding:10px 20px; background:#ddd; border:none; cursor:pointer;' }, 'Announcements');
-  manageBtn.addEventListener('click', () => { adminView = 'manage'; renderAdminManage(); });
-  assignBtn.addEventListener('click', () => { adminView = 'assign'; renderAdminAssign(); });
-  announcBtn.addEventListener('click', () => { adminView = 'announcements'; renderAdminAnnouncements(); });
-  nav.appendChild(manageBtn);
-  nav.appendChild(assignBtn);
-  nav.appendChild(announcBtn);
-  content.appendChild(nav);
+  content.appendChild(adminNavigation());
 
   // Assignment Table
   const tableSection = el('div', { id: 'assign-section' });
@@ -198,61 +338,71 @@ async function renderAdminAssign() {
   table.appendChild(thead);
 
   const tbody = el('tbody');
-  const sortedEmployees = sortEmployees(employees);
-  sortedEmployees.forEach(emp => {
-    const tr = el('tr');
+  const supervisorGroups = groupEmployeesBySupervisor(employees);
+  supervisorGroups.forEach(group => {
+    tbody.appendChild(el('tr', { class: 'supervisor-row' },
+      el('th', { colspan: String(timeslots.length + 2) }, `Supervisor: ${group.supervisor}`)
+    ));
+    group.employees.forEach(emp => {
+      const tr = el('tr');
     // Highlight checkbox
-    const checkbox = el('input', { type: 'checkbox' });
-    checkbox.checked = highlighted.includes(emp.id);
-    checkbox.addEventListener('change', async () => {
-      const previousHighlighted = [...highlighted];
-      if (checkbox.checked && !highlighted.includes(emp.id)) {
-        highlighted.push(emp.id);
-      } else if (!checkbox.checked) {
-        highlighted = highlighted.filter(id => id !== emp.id);
-      }
-
-      try {
-        await saveHighlighted(highlighted, token);
-      } catch (err) {
-        highlighted = previousHighlighted;
-        checkbox.checked = previousHighlighted.includes(emp.id);
-        alert(err.message);
-      }
-    });
-    const tdCheckbox = el('td', {}, checkbox);
-    tr.appendChild(tdCheckbox);
-    // Employee name
-    tr.appendChild(el('td', {}, emp.name));
-    timeslots.forEach(ts => {
-      const td = el('td', {});
-      const sel = el('select', {});
-      sel.appendChild(el('option', { value: '' }, ''));
-      tasks.forEach(task => sel.appendChild(el('option', { value: task }, task)));
-      const textInput = el('input', { type: 'text', placeholder: 'custom task', style: 'width:60%;margin-left:4px;' });
-      sel.value = assignments[emp.id][ts] || '';
-      
-      const updateAssignment = async () => {
-        let taskVal = textInput.value.trim() || sel.value;
-        if (!taskVal) taskVal = '';
-        // Add custom task to task list if it's not empty and not in the list
-        if (taskVal && !tasks.includes(taskVal)) {
-          await fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ taskName: taskVal, token }) });
+      const checkbox = el('input', { type: 'checkbox' });
+      checkbox.checked = highlighted.includes(emp.id);
+      checkbox.addEventListener('change', async () => {
+        const previousHighlighted = [...highlighted];
+        if (checkbox.checked && !highlighted.includes(emp.id)) {
+          highlighted.push(emp.id);
+        } else if (!checkbox.checked) {
+          highlighted = highlighted.filter(id => id !== emp.id);
         }
-        await fetch('/api/assign', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ employeeId: emp.id, timeslot: ts, task: taskVal, token }) });
-      };
-      
-      sel.addEventListener('change', () => {
-        if (sel.value) textInput.value = '';
-        updateAssignment();
+
+        try {
+          await saveHighlighted(highlighted, token);
+        } catch (err) {
+          highlighted = previousHighlighted;
+          checkbox.checked = previousHighlighted.includes(emp.id);
+          handleWriteError(err);
+        }
       });
-      textInput.addEventListener('change', updateAssignment);
+      const tdCheckbox = el('td', {}, checkbox);
+      tr.appendChild(tdCheckbox);
+    // Employee name
+      tr.appendChild(el('td', {}, emp.name));
+      timeslots.forEach(ts => {
+        const td = el('td', {});
+        const sel = el('select', {});
+        sel.appendChild(el('option', { value: '' }, ''));
+        tasks.forEach(task => sel.appendChild(el('option', { value: task }, task)));
+        const textInput = el('input', { type: 'text', placeholder: 'custom task', style: 'width:60%;margin-left:4px;' });
+        sel.value = assignments[emp.id][ts] || '';
       
-      td.appendChild(sel);
-      td.appendChild(textInput);
-      tr.appendChild(td);
+        const updateAssignment = async () => {
+          let taskVal = textInput.value.trim() || sel.value;
+          if (!taskVal) taskVal = '';
+        // Add custom task to task list if it's not empty and not in the list
+          try {
+            if (taskVal && !tasks.includes(taskVal)) {
+              await writeJson('/api/tasks', { taskName: taskVal, token });
+              tasks.push(taskVal);
+            }
+            await writeJson('/api/assign', { employeeId: emp.id, timeslot: ts, task: taskVal, token });
+          } catch (err) {
+            handleWriteError(err);
+          }
+        };
+      
+        sel.addEventListener('change', () => {
+          if (sel.value) textInput.value = '';
+          updateAssignment();
+        });
+        textInput.addEventListener('change', updateAssignment);
+        
+        td.appendChild(sel);
+        td.appendChild(textInput);
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
     });
-    tbody.appendChild(tr);
   });
   table.appendChild(tbody);
   tableSection.appendChild(table);
@@ -274,18 +424,7 @@ async function renderAdminAnnouncements() {
   const draftAnnouncements = JSON.parse(localStorage.getItem('task-assigner-draft-announcements') || 'null');
   const announcementsToUse = draftAnnouncements || announcements;
 
-  // Navigation
-  const nav = el('nav', { style: 'margin-bottom:20px; border-bottom: 2px solid #0b5cff; padding-bottom:10px;' });
-  const manageBtn = el('button', { style: 'padding:10px 20px; margin-right:10px; background:#ddd; border:none; cursor:pointer;' }, 'Manage');
-  const assignBtn = el('button', { style: 'padding:10px 20px; margin-right:10px; background:#ddd; border:none; cursor:pointer;' }, 'Assign Tasks');
-  const announcBtn = el('button', { style: 'padding:10px 20px; background:#0b5cff; color:white; border:none; cursor:pointer; font-weight:bold;' }, 'Announcements');
-  manageBtn.addEventListener('click', () => { adminView = 'manage'; renderAdminManage(); });
-  assignBtn.addEventListener('click', () => { adminView = 'assign'; renderAdminAssign(); });
-  announcBtn.addEventListener('click', () => { adminView = 'announcements'; renderAdminAnnouncements(); });
-  nav.appendChild(manageBtn);
-  nav.appendChild(assignBtn);
-  nav.appendChild(announcBtn);
-  content.appendChild(nav);
+  content.appendChild(adminNavigation());
 
   // Announcements Section
   const announcSection = el('div', { id: 'announcements-section' });
@@ -317,31 +456,26 @@ async function renderAdminAnnouncements() {
     const announcementsData = inputs.map(inp => inp.value);
     console.log('Saving announcements:', announcementsData);
     try {
-      const response = await fetch('/api/announcements', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ announcements: announcementsData, token }) });
-      const responseData = await response.json();
-      console.log('API response:', response.status, responseData);
-      if (response.ok) {
-        // Clear draft after saving
-        localStorage.removeItem('task-assigner-draft-announcements');
-        alert('Announcements saved!');
-        // Re-render to show updated data from server
-        await renderAdminAnnouncements();
-      } else {
-        alert(`Failed to save announcements: ${responseData.message || 'Unknown error'}`);
-      }
+      await writeJson('/api/announcements', { announcements: announcementsData, token });
+      localStorage.removeItem('task-assigner-draft-announcements');
+      alert('Announcements saved!');
+      await renderAdminAnnouncements();
     } catch (err) {
       console.error('Error saving announcements:', err);
-      alert(`Error: ${err.message}`);
+      handleWriteError(err);
     }
   });
 
   clearBtn.addEventListener('click', async (e) => {
     e.preventDefault();
     if (!confirm('Clear all announcements?')) return;
-    await fetch('/api/announcements/clear', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token }) });
-    // Clear draft when clearing
-    localStorage.removeItem('task-assigner-draft-announcements');
-    renderAdminAnnouncements();
+    try {
+      await writeJson('/api/announcements/clear', { token });
+      localStorage.removeItem('task-assigner-draft-announcements');
+      renderAdminAnnouncements();
+    } catch (err) {
+      handleWriteError(err);
+    }
   });
 
   form.appendChild(submitBtn);
@@ -380,6 +514,7 @@ async function renderAdmin() {
   }
 
   if (adminView === 'manage') renderAdminManage();
+  else if (adminView === 'supervisors') renderAdminSupervisors();
   else if (adminView === 'announcements') renderAdminAnnouncements();
   else renderAdminAssign();
 }
@@ -393,6 +528,7 @@ let _dashboard = {
   announcementsHash: null, // track if announcements changed
   pointingDate: null,
   highlightedEmployeeIds: [],
+  employeeHash: null,
   eventSource: null,
   updating: false,
 };
@@ -459,6 +595,11 @@ async function initDashboard() {
   _dashboard.announcementsHash = JSON.stringify(announcements);
   _dashboard.pointingDate = selectedDate;
   _dashboard.highlightedEmployeeIds = highlightedEmployeeIds || [];
+  _dashboard.employeeHash = JSON.stringify(sortEmployees(employees).map(employee => ({
+    id: employee.id,
+    name: employee.name,
+    supervisor: getSupervisorName(employee)
+  })));
 
   const table = el('table', { class: 'assign-table' });
   const thead = el('thead', {},
@@ -470,24 +611,31 @@ async function initDashboard() {
   table.appendChild(thead);
 
   const tbody = el('tbody');
-  const sortedEmployees = sortEmployees(employees);
-  sortedEmployees.forEach((emp, index) => {
-    const tr = el('tr');
-    tr.style.background = index % 2 === 0 ? '#ffffff' : '#f9f9f9';
-    const nameTd = el('td', {}, emp.name);
-    tr.appendChild(nameTd);
-    const cellMap = {};
-    timeslots.forEach(ts => {
-      const td = el('td', {}, assignments[emp.id][ts] || '');
-      tr.appendChild(td);
-      cellMap[ts] = td;
+  const supervisorGroups = groupEmployeesBySupervisor(employees);
+  let employeeIndex = 0;
+  supervisorGroups.forEach(group => {
+    tbody.appendChild(el('tr', { class: 'supervisor-row' },
+      el('th', { colspan: String(timeslots.length + 1) }, `Supervisor: ${group.supervisor}`)
+    ));
+    group.employees.forEach(emp => {
+      const tr = el('tr');
+      tr.style.background = employeeIndex % 2 === 0 ? '#ffffff' : '#f9f9f9';
+      const nameTd = el('td', {}, emp.name);
+      tr.appendChild(nameTd);
+      const cellMap = {};
+      timeslots.forEach(ts => {
+        const td = el('td', {}, assignments[emp.id][ts] || '');
+        tr.appendChild(td);
+        cellMap[ts] = td;
+      });
+      tbody.appendChild(tr);
+      _dashboard.rows[emp.id] = { nameCell: nameTd, cells: cellMap };
+      if (_dashboard.highlightedEmployeeIds.includes(emp.id)) {
+        tr.style.fontWeight = 'bold';
+        tr.style.backgroundColor = 'yellow';
+      }
+      employeeIndex += 1;
     });
-    tbody.appendChild(tr);
-    _dashboard.rows[emp.id] = { nameCell: nameTd, cells: cellMap };
-    if (_dashboard.highlightedEmployeeIds.includes(emp.id)) {
-      tr.style.fontWeight = 'bold';
-      tr.style.backgroundColor = 'yellow';
-    }
   });
   table.appendChild(tbody);
   content.appendChild(table);
@@ -515,14 +663,17 @@ async function updateDashboard() {
 
     // If timeslots changed or employees changed (simple detection), rebuild
     const timesEqual = JSON.stringify(timeslots) === JSON.stringify(_dashboard.timeslots);
-    const empIds = employees.map(e => e.id).sort();
-    const existingIds = Object.keys(_dashboard.rows).map(x => Number(x)).sort();
+    const employeeHash = JSON.stringify(sortEmployees(employees).map(employee => ({
+      id: employee.id,
+      name: employee.name,
+      supervisor: getSupervisorName(employee)
+    })));
 
     // Check if announcements changed
     const currentAnnouncementsHash = JSON.stringify(announcements);
     const announcementsChanged = currentAnnouncementsHash !== _dashboard.announcementsHash;
 
-    if (!timesEqual || JSON.stringify(empIds) !== JSON.stringify(existingIds) || announcementsChanged) {
+    if (!timesEqual || employeeHash !== _dashboard.employeeHash || announcementsChanged) {
       await initDashboard();
       return;
     }
@@ -539,7 +690,7 @@ async function updateDashboard() {
     });
 
     _dashboard.highlightedEmployeeIds = highlightedEmployeeIds || [];
-    Object.keys(_dashboard.rows).forEach(empId => {
+    Object.keys(_dashboard.rows).forEach((empId, index) => {
       const tr = _dashboard.rows[empId].nameCell.parentElement;
       if (_dashboard.highlightedEmployeeIds.includes(Number(empId))) {
         tr.style.fontWeight = 'bold';
@@ -548,7 +699,6 @@ async function updateDashboard() {
         tr.style.fontWeight = '';
         tr.style.backgroundColor = '';
         // Restore zebra if not highlighted
-        const index = Object.keys(_dashboard.rows).indexOf(empId);
         tr.style.background = index % 2 === 0 ? '#ffffff' : '#f9f9f9';
       }
     });

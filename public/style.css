@@ -3,16 +3,20 @@ header { background: #0b5cff; color: white; padding: 16px; display:flex; align-i
 main { padding: 16px; }
 h2 { margin-top: 24px; margin-bottom: 12px; }
 #emp-mgmt, #task-mgmt, #assign-section { margin-bottom: 32px; border: 1px solid #eee; padding: 16px; border-radius: 4px; }
-#emp-mgmt form, #task-mgmt form { display: flex; gap: 8px; margin-bottom: 16px; }
+#emp-mgmt form, #task-mgmt form { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
 #emp-mgmt input, #task-mgmt input { flex: 1; padding: 6px; }
 #emp-mgmt ul, #task-mgmt ul { list-style: none; padding: 0; }
 #emp-mgmt li, #task-mgmt li { display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid #eee; }
 #emp-mgmt li button, #task-mgmt li button { padding: 4px 8px; font-size: 12px; }
+.employee-list { display: grid; gap: 8px; }
+.employee-row { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) auto auto; gap: 8px; align-items: center; padding: 8px; border-bottom: 1px solid #eee; }
 table.assign-table { width:100%; border-collapse: collapse; }
 table.assign-table th, table.assign-table td { border: 1px solid #ddd; padding: 8px; text-align:left; }
 table.assign-table td { padding: 4px; }
 table.assign-table tbody tr:nth-child(odd) { background: #fafafa; }
 table.assign-table tbody tr:nth-child(even) { background: #ffffff; }
+table.assign-table tbody tr.supervisor-row { background: #eaf2ff; }
+table.assign-table tbody tr.supervisor-row th { padding: 10px 8px; color: #173b6d; font-size: 16px; }
 select { padding: 4px; }
 input[type="text"] { padding: 4px; }
 button { padding: 8px 12px; margin: 8px; cursor: pointer; }
@@ -20,3 +24,14 @@ button:hover { background: #f0f0f0; }
 #fullscreen-btn { padding: 6px 10px; font-size: 14px; border: 1px solid #ccc; border-radius: 3px; background: white; }
 #fullscreen-btn:hover { background: #f2f2f2; }
 main { min-height: calc(100vh - 72px); }
+
+@media (max-width: 720px) {
+  .employee-row { grid-template-columns: 1fr; }
+}
+
+.admin-nav { margin-bottom: 20px; border-bottom: 2px solid #0b5cff; padding-bottom: 10px; }
+.admin-nav button { padding: 10px 20px; background: #ddd; border: none; }
+.admin-nav button.active { background: #0b5cff; color: white; font-weight: bold; }
+#emp-mgmt select { flex: 1; padding: 6px; min-width: 0; }
+#supervisor-setup { max-width: 640px; border: 1px solid #eee; padding: 16px; border-radius: 4px; }
+#supervisor-list { display: block; width: 100%; box-sizing: border-box; padding: 8px; font: inherit; }
